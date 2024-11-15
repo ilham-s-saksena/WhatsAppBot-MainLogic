@@ -87,5 +87,9 @@ export const sendMessageWa = async (phone, message) => {
         console.error("Error saat mengirim pesan:", error);
         return false;
     }
-};
+}
+
+export const destruyWhatsApp = () => {
+    fs.rmSync("session", { recursive: true, force: true });
+}
 

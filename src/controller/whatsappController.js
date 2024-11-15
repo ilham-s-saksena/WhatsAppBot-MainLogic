@@ -1,4 +1,4 @@
-import { sendMessageWa, loginWhatsApp } from "../services/whatsappService.js";
+import { sendMessageWa, loginWhatsApp, destruyWhatsApp } from "../services/whatsappService.js";
 
 export const sendMessage = async (req, res) => {
     const { phone } = req.params;
@@ -28,4 +28,8 @@ export const waLogin = async (req, res) => {
         
     }
     
+}
+
+export const waDestroy = (req, res) => {
+
 }
