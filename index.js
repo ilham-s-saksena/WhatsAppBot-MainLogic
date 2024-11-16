@@ -3,6 +3,8 @@ import { makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
 // const { makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
 import pino from "pino";
 // const pino = require("pino");
+import undici from "undici";
+// const undici = require('undici');
 
 // create main function
 async function connectToWhatsApp(){
@@ -40,31 +42,45 @@ async function connectToWhatsApp(){
 
     //add event listener from chat has coming
     socket.ev.on("messages.upsert", async ({messages}) => {
-        console.log(messages);
+        try {
+            console.log(messages);
 
-        const pesan = messages[0].message.conversation;
-        const phone = messages[0].key.remoteJid;
+            const pesan = messages[0].message.conversation;
+            const phone = messages[0].key.remoteJid;
+            // to reply the chat
+            if (!messages[0].key.fromMe && messages[0].key.remoteJid != 'status@broadcast') {
 
-        // to reply the chat
-        if (!messages[0].key.fromMe) {
+                // const responnse = await query(pesan);
+                const pronmt = {
+                    question: pesan,
+                    overrideConfig: {
+                        systemMessagePrompt: "Anda adalah seorang psikiater profesional yang berbicara dalam bahasa Indonesia. Peran Anda adalah mendengarkan dengan empati, memberikan dukungan emosional, dan membantu pasien memahami serta mengatasi masalah psikologis atau emosional mereka. Anda menggunakan bahasa yang sopan, ramah, dan penuh pengertian. Selalu bersikap sabar, mendengarkan dengan baik, dan menyesuaikan jawaban Anda agar relevan dengan kebutuhan pasien.",
+                        sessionId: phone,
+                        chat_history: phone
+                    },
+                    sessionId: phone,
+                    chat_history: phone
+                }
 
-            // const responnse = await query(pesan);
-
-            const pronmt = {
-                question: pesan,
-                overrideConfig: {
-                    systemMessagePrompt: "Anda berbicara dalam bahasa Indonesia yang sopan, ramah, dan mudah dimengerti oleh pasien. Anda adalah seorang dokter yang bekerja di Klinik Watumas di Purwokerto. Tujuan Anda adalah memberikan informasi medis, menjawab pertanyaan kesehatan, dan memberi saran yang berguna untuk menjaga kesehatan pasien. Sebagai dokter, Anda berfokus pada aspek kesehatan secara umum dan dapat memberikan saran, rekomendasi gaya hidup sehat, atau menjelaskan berbagai perawatan medis sederhana sesuai kebutuhan pasien. Anda tidak memberikan diagnosa pasti atau resep obat tanpa pemeriksaan langsung, namun Anda dapat membantu pasien memahami gejala atau keluhan mereka serta kapan sebaiknya menemui dokter secara langsung. Jangan gunakan istilah medis yang rumit kecuali diminta, dan pastikan penjelasan Anda mudah dipahami. Selalu tawarkan dukungan dan kesediaan untuk membantu lebih lanjut. Jika pasien bertanya tentang lokasi klinik atau jadwal praktik, berikan informasi seputar Klinik Watumas."
+                try {
+                    query(pronmt).then(async (response) => {
+                        await socket.sendMessage(phone, {text: response.text});
+                    }).catch(async (error) => {
+                        console.error("Error saat query:", error);
+                        await socket.sendMessage(phone, {text: "Ups, terjadi masalah. Silakan coba lagi."});
+                    });
+                } catch (error) {
+                    if (error.code === 'UND_ERR_HEADERS_TIMEOUT') {
+                        await socket.sendMessage(phone, {text: "Maaf, server terlalu lambat merespons. Silakan coba lagi nanti."});
+                    } else {
+                        await socket.sendMessage(phone, {text: "Terjadi error. Silakan coba lagi."});
+                    }
                 }
             }
-
-            
-            query(pronmt).then( async (response) => {
-                await socket.sendMessage(phone, {text: response.text});
-                // console.log(response);
-            });
+            return;
+        } catch (error) {
+            console.error("Error saat handling messages.upsert:", error);
         }
-
-        return
     });
 }
 
@@ -72,18 +88,24 @@ async function connectToWhatsApp(){
 connectToWhatsApp();
 
 async function query(data) {
-    const response = await fetch(
-        "http://localhost:3000/api/v1/prediction/7e3316ff-2e33-4ca6-b965-cd11422e05e3",
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        }
-    );
-    const result = await response.json();
-    return result;
+    try {
+        const response = await fetch(
+            "http://localhost:3000/api/v1/prediction/7e3316ff-2e33-4ca6-b965-cd11422e05e3",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data),
+            }
+        );
+        const result = await response.json();
+        return result;
+        
+    } catch (error) { // Perbaiki dari `err` menjadi `error`
+        console.error("Error saat query:", error); // Log detail error
+        throw new Error(`Query failed: ${error.message}`);
+    }
 }
 
 
